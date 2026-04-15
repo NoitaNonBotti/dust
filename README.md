@@ -2,5 +2,5 @@
 
 TODO
 ===
-[ ] - django boilerplate
-[ ] - have the figma thing attach to this idk
+- [ ] django boilerplate
+- [ ] have the figma thing attach to this idk
