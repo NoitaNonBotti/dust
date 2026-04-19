@@ -28,7 +28,7 @@ source ./venv/bin/activate
 
 now you can install all the dependencies using `pip`:
 ```bash
-pip -r requirements.txt
+pip install -r requirements.txt
 ```
 
 You're done!
