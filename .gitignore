@@ -1,6 +1,6 @@
 venv/
-
-dust_django/__pycache__/
-
-yarn.lock
+__pycache__/
 node_modules/
+
+pnpm-lock.yaml
+yarn.lock

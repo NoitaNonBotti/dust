@@ -34,7 +34,13 @@ pip -r requirements.txt
 You're done!
 
 
-TODO
-===
-- [ ] django boilerplate
-- [ ] have the figma thing attach to this idk
+## dust_react
+
+## Running the code
+
+I mainly use `pnpm`
+
+  Run `npm i` to install the dependencies.
+
+  Run `npm run dev` to start the development server.
+
