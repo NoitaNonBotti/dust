@@ -1,13 +1,23 @@
-import { useState } from "react";
-import { Search, Edit, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Edit, Lock, LogOut, RefreshCw, Search, ShieldCheck, Trash2 } from "lucide-react";
 import { LostItem, Claim } from "../types";
 import { mockLostItems } from "../data/mockData";
+import { deleteLostItem, getLostItems, updateLostItem } from "../api/lostItems";
 import { EditItemDialog } from "./EditItemDialog";
 import { ClaimReviewDialog } from "./ClaimReviewDialog";
+
+const TEMP_ADMIN_PASSWORD = "password";
+const ADMIN_SESSION_KEY = "dust-admin-password";
 
 export function AdminPage() {
   const [items, setItems] = useState<LostItem[]>(mockLostItems);
   const [searchQuery, setSearchQuery] = useState("");
+  const [passwordInput, setPasswordInput] = useState("");
+  const [adminPassword, setAdminPassword] = useState(
+    () => sessionStorage.getItem(ADMIN_SESSION_KEY) || ""
+  );
+  const [authError, setAuthError] = useState("");
+  const [apiStatus, setApiStatus] = useState<"idle" | "loading" | "connected" | "fallback" | "error">("idle");
   const [selectedItem, setSelectedItem] = useState<LostItem | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedClaim, setSelectedClaim] = useState<{
@@ -15,26 +25,116 @@ export function AdminPage() {
     claim: Claim;
   } | null>(null);
 
-  const filteredItems = items.filter((item) => {
-    const matchesSearch =
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSearch;
-  });
+  const isAuthenticated = adminPassword === TEMP_ADMIN_PASSWORD;
+
+  const loadAdminItems = useCallback(async () => {
+    setApiStatus("loading");
+    try {
+      const apiItems = await getLostItems();
+      setItems(apiItems);
+      setApiStatus("connected");
+    } catch {
+      setItems(mockLostItems);
+      setApiStatus("fallback");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let isMounted = true;
+    const refresh = () => {
+      if (isMounted) {
+        loadAdminItems();
+      }
+    };
+
+    refresh();
+    const intervalId = window.setInterval(refresh, 5000);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("dust:lost-items-changed", refresh);
+    window.addEventListener("storage", refresh);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("dust:lost-items-changed", refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, [isAuthenticated, loadAdminItems]);
+
+  const filteredItems = items
+    .filter((item) => {
+      const matchesSearch =
+        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.description.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesSearch;
+    })
+    .sort(compareLostItems);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (passwordInput !== TEMP_ADMIN_PASSWORD) {
+      setAuthError("Incorrect password.");
+      return;
+    }
+
+    sessionStorage.setItem(ADMIN_SESSION_KEY, passwordInput);
+    setAdminPassword(passwordInput);
+    setPasswordInput("");
+    setAuthError("");
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem(ADMIN_SESSION_KEY);
+    setAdminPassword("");
+    setItems(mockLostItems);
+    setApiStatus("idle");
+  };
 
   const handleEdit = (item: LostItem) => {
     setSelectedItem(item);
     setIsEditDialogOpen(true);
   };
 
-  const handleDelete = (itemId: string) => {
+  const handleDelete = async (itemId: string) => {
     if (confirm("Are you sure you want to delete this item?")) {
-      setItems(items.filter((item) => item.id !== itemId));
+      try {
+        await deleteLostItem(itemId, adminPassword);
+        setItems(items.filter((item) => item.id !== itemId));
+        window.dispatchEvent(new Event("dust:lost-items-changed"));
+        localStorage.setItem("dust:last-items-change", Date.now().toString());
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unable to delete item.";
+        alert(`Could not delete item: ${message}`);
+      }
     }
   };
 
-  const handleUpdateItem = (updatedItem: LostItem) => {
-    setItems(items.map((item) => (item.id === updatedItem.id ? updatedItem : item)));
+  const handleUpdateItem = async (updatedItem: LostItem) => {
+    try {
+      const savedItem = await updateLostItem(
+        {
+          id: updatedItem.id,
+          name: updatedItem.name,
+          category: updatedItem.categories[0],
+          description: updatedItem.description,
+          location: updatedItem.location,
+          dateFound: updatedItem.dateFound,
+          status: updatedItem.status,
+          imageUrl: updatedItem.images[0] || "",
+        },
+        adminPassword
+      );
+      setItems(items.map((item) => (item.id === savedItem.id ? savedItem : item)));
+      window.dispatchEvent(new Event("dust:lost-items-changed"));
+      localStorage.setItem("dust:last-items-change", Date.now().toString());
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to update item.";
+      alert(`Could not update item: ${message}`);
+    }
   };
 
   const handleUpdateClaim = (itemId: string, claimId: string, status: "approved" | "rejected") => {
@@ -60,13 +160,87 @@ export function AdminPage() {
     return acc + pending.length;
   }, 0);
 
+  if (!isAuthenticated) {
+    return (
+      <div className="max-w-md mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="bg-white border border-slate-200 rounded-lg shadow-sm p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="size-11 rounded-md bg-blue-50 text-blue-700 flex items-center justify-center">
+              <Lock className="size-5" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-semibold">Admin Access</h1>
+              <p className="text-sm text-slate-600">Enter the temporary admin password.</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Password</label>
+              <input
+                type="password"
+                value={passwordInput}
+                onChange={(e) => {
+                  setPasswordInput(e.target.value);
+                  setAuthError("");
+                }}
+                className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="password"
+              />
+              {authError && <p className="text-sm text-red-600 mt-2">{authError}</p>}
+            </div>
+
+            <button
+              type="submit"
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            >
+              <ShieldCheck className="size-4" />
+              Unlock Dashboard
+            </button>
+          </form>
+
+          <p className="text-xs text-slate-500 mt-4">
+            Temporary development password: password
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-semibold mb-2">Admin Dashboard</h1>
-        <p className="text-slate-600">
-          Manage lost items, review claims, and update item status.
-        </p>
+      <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h1 className="text-3xl font-semibold mb-2">Admin Dashboard</h1>
+          <p className="text-slate-600">
+            Manage lost items, review claims, and update item status.
+          </p>
+          <p className="text-sm text-slate-500 mt-2">
+            {apiStatus === "loading" && "Loading items from the Django API..."}
+            {apiStatus === "connected" && "Loaded from the Django API."}
+            {apiStatus === "fallback" && "Django API unavailable; showing mock data."}
+            {apiStatus === "error" && "Unable to complete the latest admin action."}
+          </p>
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={loadAdminItems}
+            className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-md hover:bg-slate-50 transition-colors"
+          >
+            <RefreshCw className="size-4" />
+            Refresh
+          </button>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-md hover:bg-slate-50 transition-colors"
+          >
+            <LogOut className="size-4" />
+            Lock
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
@@ -235,4 +409,17 @@ export function AdminPage() {
       )}
     </div>
   );
+}
+
+function compareLostItems(a: LostItem, b: LostItem) {
+  const statusPriority = {
+    unclaimed: 0,
+    claimed: 1,
+    returned: 2,
+  };
+
+  const statusDifference = statusPriority[a.status] - statusPriority[b.status];
+  if (statusDifference !== 0) return statusDifference;
+
+  return b.dateFound.localeCompare(a.dateFound);
 }

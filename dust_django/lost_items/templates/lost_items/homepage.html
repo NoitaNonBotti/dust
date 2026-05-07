@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>DUST API Reference</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #f8fafc;
+        color: #0f172a;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+      }
+
+      .shell {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 40px 24px;
+      }
+
+      header {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        margin-bottom: 24px;
+      }
+
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 32px;
+        line-height: 1.15;
+        margin-bottom: 8px;
+      }
+
+      h2 {
+        font-size: 20px;
+        margin-bottom: 14px;
+      }
+
+      h3 {
+        font-size: 15px;
+        margin: 18px 0 8px;
+      }
+
+      p {
+        margin: 0;
+        color: #475569;
+      }
+
+      a {
+        color: #2563eb;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-content: flex-start;
+        gap: 10px;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 40px;
+        padding: 0 14px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        background: #ffffff;
+        color: #0f172a;
+        text-decoration: none;
+        font-weight: 600;
+      }
+
+      .panel,
+      .endpoint {
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+      }
+
+      .panel {
+        padding: 20px;
+        margin-bottom: 18px;
+      }
+
+      .endpoint {
+        overflow: hidden;
+        margin-bottom: 18px;
+      }
+
+      summary.endpoint-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+        padding: 16px 20px;
+        border-bottom: 1px solid #e2e8f0;
+        background: #f8fafc;
+        cursor: pointer;
+        list-style: none;
+      }
+
+      summary.endpoint-header::-webkit-details-marker {
+        display: none;
+      }
+
+      summary.endpoint-header::after {
+        content: "Open";
+        margin-left: auto;
+        color: #2563eb;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      details[open] summary.endpoint-header::after {
+        content: "Close";
+      }
+
+      .endpoint-body {
+        padding: 20px;
+      }
+
+      .method {
+        min-width: 72px;
+        padding: 4px 8px;
+        border-radius: 999px;
+        color: #ffffff;
+        text-align: center;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+      }
+
+      .get {
+        background: #15803d;
+      }
+
+      .post {
+        background: #2563eb;
+      }
+
+      .patch {
+        background: #b45309;
+      }
+
+      .delete {
+        background: #dc2626;
+      }
+
+      .path {
+        font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+        font-size: 15px;
+        font-weight: 700;
+      }
+
+      code,
+      pre {
+        font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      }
+
+      pre {
+        margin: 0;
+        padding: 14px;
+        border-radius: 6px;
+        background: #0f172a;
+        color: #e2e8f0;
+        overflow-x: auto;
+        line-height: 1.5;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+      }
+
+      th,
+      td {
+        padding: 10px;
+        border-bottom: 1px solid #e2e8f0;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        color: #475569;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .muted {
+        color: #64748b;
+      }
+
+      .endpoint-link {
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      .error-list {
+        margin: 8px 0 0;
+        padding-left: 18px;
+        color: #475569;
+      }
+
+      @media (max-width: 820px) {
+        header {
+          flex-direction: column;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <header>
+        <div>
+          <h1>DUST API Reference</h1>
+          <p>Development reference for the Django REST-style endpoints used by the React frontend.</p>
+        </div>
+        <nav class="actions" aria-label="Quick links">
+          <a class="button" href="/api/health/">Health JSON</a>
+          <a class="button" href="/api/lost-items/">Items JSON</a>
+          <a class="button" href="/admin/">Django Admin</a>
+          <a class="button" href="http://localhost:5173/">React Frontend</a>
+        </nav>
+      </header>
+
+      <section class="panel">
+        <h2>Base URL</h2>
+        <p><code>http://localhost:8000</code></p>
+      </section>
+
+      <section class="panel">
+        <h2>All Endpoints</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>Path</th>
+              <th>Purpose</th>
+              <th>Docs</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>GET</td>
+              <td><code>/api/health/</code></td>
+              <td>Check whether the backend API is running.</td>
+              <td><a class="endpoint-link" href="#get-health">Open</a></td>
+            </tr>
+            <tr>
+              <td>GET</td>
+              <td><code>/api/lost-items/</code></td>
+              <td>List all saved lost items.</td>
+              <td><a class="endpoint-link" href="#get-lost-items">Open</a></td>
+            </tr>
+            <tr>
+              <td>POST</td>
+              <td><code>/api/lost-items/</code></td>
+              <td>Create a lost item. Accepts JSON or multipart form data with an image file.</td>
+              <td><a class="endpoint-link" href="#post-lost-items">Open</a></td>
+            </tr>
+            <tr>
+              <td>PATCH</td>
+              <td><code>/api/lost-items/&lt;id&gt;/</code></td>
+              <td>Update a saved lost item. Requires the temporary admin password header.</td>
+              <td><a class="endpoint-link" href="#patch-lost-item">Open</a></td>
+            </tr>
+            <tr>
+              <td>DELETE</td>
+              <td><code>/api/lost-items/&lt;id&gt;/</code></td>
+              <td>Delete a saved lost item. Requires the temporary admin password header.</td>
+              <td><a class="endpoint-link" href="#delete-lost-item">Open</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <details class="endpoint" id="get-health">
+        <summary class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/health/</span>
+        </summary>
+        <div class="endpoint-body">
+          <p>Use this as a lightweight readiness check before starting frontend API work.</p>
+
+          <h3>PowerShell Example</h3>
+          <pre>curl.exe http://localhost:8000/api/health/</pre>
+
+          <h3>Parameters</h3>
+          <p class="muted">None.</p>
+
+          <h3>Example Response</h3>
+          <pre>{
+  "ok": true,
+  "service": "dust_django"
+}</pre>
+
+          <h3>Optional Error Handling</h3>
+          <ul class="error-list">
+            <li>Connection refused: Django is not running or is not on port 8000.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="endpoint" id="get-lost-items">
+        <summary class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/lost-items/</span>
+        </summary>
+        <div class="endpoint-body">
+          <p>Fetches the current item collection for the Lost Items and Admin screens.</p>
+
+          <h3>PowerShell Example</h3>
+          <pre>curl.exe http://localhost:8000/api/lost-items/</pre>
+
+          <h3>Parameters</h3>
+          <p class="muted">None.</p>
+
+          <h3>Example Response</h3>
+          <pre>{
+  "items": [
+    {
+      "id": "1",
+      "name": "Blue Backpack",
+      "category": "Bags",
+      "description": "Navy blue backpack found near the cafeteria.",
+      "location": "Cafeteria",
+      "dateFound": "2026-05-07",
+      "status": "unclaimed",
+      "imageUrl": "/media/lost_items/example.png"
+    }
+  ]
+}</pre>
+
+          <h3>Optional Error Handling</h3>
+          <ul class="error-list">
+            <li>Connection refused: Django is not running or is not on port 8000.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="endpoint" id="post-lost-items">
+        <summary class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/lost-items/</span>
+        </summary>
+        <div class="endpoint-body">
+          <p>Creates an item record from the reporting workflow, including optional local image storage.</p>
+
+          <h3>PowerShell JSON Example</h3>
+          <pre>curl.exe -X POST http://localhost:8000/api/lost-items/ `
+  -H "Content-Type: application/json" `
+  -d "{\"name\":\"Blue Backpack\",\"category\":\"Bags\",\"description\":\"Navy blue backpack found near the cafeteria.\",\"location\":\"Cafeteria\",\"imageUrl\":\"\"}"</pre>
+
+          <h3>PowerShell Image Upload Example</h3>
+          <pre>curl.exe -X POST http://localhost:8000/api/lost-items/ `
+  -F "name=Blue Backpack" `
+  -F "category=Bags" `
+  -F "description=Navy blue backpack found near the cafeteria." `
+  -F "location=Cafeteria" `
+  -F "image=@C:\path\to\image.png"</pre>
+
+          <h3>Parameters</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Required</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>name</code></td>
+                <td>Yes</td>
+                <td>Short item name.</td>
+              </tr>
+              <tr>
+                <td><code>category</code></td>
+                <td>Yes</td>
+                <td>Single category stored by the basic backend model.</td>
+              </tr>
+              <tr>
+                <td><code>description</code></td>
+                <td>Yes</td>
+                <td>Details that help identify the item.</td>
+              </tr>
+              <tr>
+                <td><code>location</code></td>
+                <td>Yes</td>
+                <td>Where the item was found or can be retrieved.</td>
+              </tr>
+              <tr>
+                <td><code>dateFound</code></td>
+                <td>No</td>
+                <td>Date in <code>YYYY-MM-DD</code> format. Defaults to today's server date.</td>
+              </tr>
+              <tr>
+                <td><code>imageUrl</code></td>
+                <td>No</td>
+                <td>Existing image URL/path for JSON requests.</td>
+              </tr>
+              <tr>
+                <td><code>image</code></td>
+                <td>No</td>
+                <td>Multipart image file. Supported types: JPEG, PNG, GIF, WebP.</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3>Optional Error Handling</h3>
+          <ul class="error-list">
+            <li><code>400 Invalid JSON body.</code>: request body was not valid JSON.</li>
+            <li><code>400 Missing required fields.</code>: one or more required fields were empty.</li>
+            <li><code>400 Image must be a JPEG, PNG, GIF, or WebP file.</code>: unsupported uploaded image type.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="endpoint" id="patch-lost-item">
+        <summary class="endpoint-header">
+          <span class="method patch">PATCH</span>
+          <span class="path">/api/lost-items/&lt;id&gt;/</span>
+        </summary>
+        <div class="endpoint-body">
+          <p>Applies admin dashboard edits to one item, including status and optional image replacement.</p>
+
+          <h3>PowerShell Example</h3>
+          <pre>curl.exe -X PATCH http://localhost:8000/api/lost-items/1/ `
+  -H "Content-Type: application/json" `
+  -H "X-DUST-ADMIN-PASSWORD: password" `
+  -d "{\"name\":\"Updated Backpack\",\"category\":\"Bags\",\"description\":\"Updated description\",\"location\":\"Library\",\"dateFound\":\"2026-05-07\",\"status\":\"claimed\"}"</pre>
+
+          <h3>Parameters</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Required</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>id</code></td>
+                <td>Yes</td>
+                <td>Lost item ID in the URL path.</td>
+              </tr>
+              <tr>
+                <td><code>X-DUST-ADMIN-PASSWORD</code></td>
+                <td>Yes</td>
+                <td>Temporary admin header. Current development value is <code>password</code>.</td>
+              </tr>
+              <tr>
+                <td><code>name</code>, <code>category</code>, <code>description</code>, <code>location</code></td>
+                <td>No</td>
+                <td>Text fields to update.</td>
+              </tr>
+              <tr>
+                <td><code>dateFound</code></td>
+                <td>No</td>
+                <td>Date in <code>YYYY-MM-DD</code> format.</td>
+              </tr>
+              <tr>
+                <td><code>status</code></td>
+                <td>No</td>
+                <td>One of <code>unclaimed</code>, <code>claimed</code>, or <code>returned</code>.</td>
+              </tr>
+              <tr>
+                <td><code>imageUrl</code> or <code>image</code></td>
+                <td>No</td>
+                <td>Replacement image path/URL or multipart image file.</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3>Optional Error Handling</h3>
+          <ul class="error-list">
+            <li><code>401 Admin password is required.</code>: missing or incorrect temporary admin header.</li>
+            <li><code>404 Not Found</code>: no lost item exists with that ID.</li>
+            <li><code>400 Invalid JSON body.</code>: request body was not valid JSON.</li>
+            <li><code>400 Invalid item status.</code>: status was not one of the accepted values.</li>
+            <li><code>400 Image must be a JPEG, PNG, GIF, or WebP file.</code>: unsupported uploaded image type.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="endpoint" id="delete-lost-item">
+        <summary class="endpoint-header">
+          <span class="method delete">DELETE</span>
+          <span class="path">/api/lost-items/&lt;id&gt;/</span>
+        </summary>
+        <div class="endpoint-body">
+          <p>Removes an item from the database when an admin decides the record should no longer appear.</p>
+
+          <h3>PowerShell Example</h3>
+          <pre>curl.exe -X DELETE http://localhost:8000/api/lost-items/1/ `
+  -H "X-DUST-ADMIN-PASSWORD: password"</pre>
+
+          <h3>Parameters</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Required</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>id</code></td>
+                <td>Yes</td>
+                <td>Lost item ID in the URL path.</td>
+              </tr>
+              <tr>
+                <td><code>X-DUST-ADMIN-PASSWORD</code></td>
+                <td>Yes</td>
+                <td>Temporary admin header. Current development value is <code>password</code>.</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h3>Example Response</h3>
+          <pre>{
+  "deleted": true
+}</pre>
+
+          <h3>Optional Error Handling</h3>
+          <ul class="error-list">
+            <li><code>401 Admin password is required.</code>: missing or incorrect temporary admin header.</li>
+            <li><code>404 Not Found</code>: no lost item exists with that ID.</li>
+          </ul>
+        </div>
+      </details>
+      <script>
+        document.querySelectorAll('a[href^="#"]').forEach((link) => {
+          link.addEventListener("click", () => {
+            const target = document.querySelector(link.getAttribute("href"));
+            if (target && target.tagName.toLowerCase() === "details") {
+              target.setAttribute("open", "");
+            }
+          });
+        });
+      </script>
+    </main>
+  </body>
+</html>

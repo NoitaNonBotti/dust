@@ -1,7 +1,8 @@
-import { useState } from "react";
-import { Search, Filter } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Calendar, Filter, Search, X } from "lucide-react";
 import { LostItem } from "../types";
 import { mockLostItems, defaultCategories } from "../data/mockData";
+import { getLostItems } from "../api/lostItems";
 import { ItemCard } from "./ItemCard";
 import { ItemDetailsDialog } from "./ItemDetailsDialog";
 import { ClaimDialog } from "./ClaimDialog";
@@ -10,26 +11,79 @@ export function LostItemsPage() {
   const [items, setItems] = useState<LostItem[]>(mockLostItems);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [dateFilterMode, setDateFilterMode] = useState<"all" | "before" | "after" | "on" | "between">("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [selectedItem, setSelectedItem] = useState<LostItem | null>(null);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isClaimDialogOpen, setIsClaimDialogOpen] = useState(false);
+  const [apiStatus, setApiStatus] = useState<"loading" | "connected" | "fallback">("loading");
+
+  const loadItems = useCallback(async () => {
+    setApiStatus("loading");
+
+    try {
+      const apiItems = await getLostItems();
+      setItems(apiItems);
+      setApiStatus("connected");
+    } catch {
+      setItems(mockLostItems);
+      setApiStatus("fallback");
+    }
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const refresh = () => {
+      if (isMounted) {
+        loadItems();
+      }
+    };
+
+    refresh();
+    const intervalId = window.setInterval(refresh, 5000);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("dust:lost-items-changed", refresh);
+    window.addEventListener("storage", refresh);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("dust:lost-items-changed", refresh);
+      window.removeEventListener("storage", refresh);
+    };
+  }, [loadItems]);
 
   // Get all unique categories from items plus default categories
   const allCategories = Array.from(
     new Set([...defaultCategories, ...items.flatMap((item) => item.categories)])
   ).sort();
 
-  const filteredItems = items.filter((item) => {
-    const matchesSearch =
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.location.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredItems = items
+    .filter((item) => {
+      const matchesSearch =
+        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.location.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesCategory =
-      selectedCategory === "All" || item.categories.includes(selectedCategory);
+      const matchesCategory =
+        selectedCategory === "All" || item.categories.includes(selectedCategory);
 
-    return matchesSearch && matchesCategory;
-  });
+      const matchesDate = matchesDateFilter(item.dateFound, dateFilterMode, dateFrom, dateTo);
+
+      return matchesSearch && matchesCategory && matchesDate;
+    })
+    .sort(compareLostItems);
+
+  const hasDateFilter = dateFilterMode !== "all";
+
+  const clearDateFilter = () => {
+    setDateFilterMode("all");
+    setDateFrom("");
+    setDateTo("");
+  };
 
   const handleViewDetails = (itemId: string) => {
     const item = items.find((i) => i.id === itemId);
@@ -80,6 +134,11 @@ export function LostItemsPage() {
         <p className="text-slate-600">
           Browse and search for lost items. Click "See Details" to view more information and file a claim.
         </p>
+        <p className="text-sm text-slate-500 mt-2">
+          {apiStatus === "loading" && "Connecting to the Django API..."}
+          {apiStatus === "connected" && "Loaded from the Django API."}
+          {apiStatus === "fallback" && "Django API unavailable; showing mock data."}
+        </p>
       </div>
 
       <div className="mb-6 flex flex-col sm:flex-row gap-4">
@@ -107,6 +166,79 @@ export function LostItemsPage() {
               </option>
             ))}
           </select>
+        </div>
+      </div>
+
+      <div className="mb-6 bg-white border border-slate-200 rounded-lg p-4">
+        <div className="flex flex-col lg:flex-row gap-4 lg:items-end">
+          <div className="relative min-w-[180px]">
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Date Filter
+            </label>
+            <Calendar className="absolute left-3 bottom-2.5 size-5 text-slate-400" />
+            <select
+              value={dateFilterMode}
+              onChange={(e) => {
+                const nextMode = e.target.value as typeof dateFilterMode;
+                setDateFilterMode(nextMode);
+                if (nextMode === "all") {
+                  setDateFrom("");
+                  setDateTo("");
+                } else if (nextMode !== "between") {
+                  setDateTo("");
+                }
+              }}
+              className="w-full pl-10 pr-8 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
+            >
+              <option value="all">All Dates</option>
+              <option value="before">Before</option>
+              <option value="after">After</option>
+              <option value="on">On</option>
+              <option value="between">Between</option>
+            </select>
+          </div>
+
+          {dateFilterMode !== "all" && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  {dateFilterMode === "between" ? "Start Date" : "Date"}
+                </label>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {dateFilterMode === "between" && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    min={dateFrom || undefined}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {hasDateFilter && (
+            <button
+              type="button"
+              onClick={clearDateFilter}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 rounded-md hover:bg-slate-50 transition-colors"
+            >
+              <X className="size-4" />
+              Clear Date
+            </button>
+          )}
         </div>
       </div>
 
@@ -147,4 +279,40 @@ export function LostItemsPage() {
       )}
     </div>
   );
+}
+
+function compareLostItems(a: LostItem, b: LostItem) {
+  const statusPriority = {
+    unclaimed: 0,
+    claimed: 1,
+    returned: 2,
+  };
+
+  const statusDifference = statusPriority[a.status] - statusPriority[b.status];
+  if (statusDifference !== 0) return statusDifference;
+
+  return b.dateFound.localeCompare(a.dateFound);
+}
+
+function matchesDateFilter(
+  itemDate: string,
+  mode: "all" | "before" | "after" | "on" | "between",
+  dateFrom: string,
+  dateTo: string
+) {
+  const normalizedItemDate = itemDate.slice(0, 10);
+
+  if (mode === "all") return true;
+  if (!dateFrom) return true;
+
+  if (mode === "before") return normalizedItemDate < dateFrom;
+  if (mode === "after") return normalizedItemDate > dateFrom;
+  if (mode === "on") return normalizedItemDate === dateFrom;
+
+  if (mode === "between") {
+    if (!dateTo) return normalizedItemDate >= dateFrom;
+    return normalizedItemDate >= dateFrom && normalizedItemDate <= dateTo;
+  }
+
+  return true;
 }

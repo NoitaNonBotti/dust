@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Plus, Save, Trash2, FileText, X, Upload } from "lucide-react";
 import { ItemTemplate } from "../types";
 import { defaultCategories, mockTemplates } from "../data/mockData";
+import { createLostItem } from "../api/lostItems";
 import { ManageTemplatesDialog } from "./ManageTemplatesDialog";
 import { ManageCategoriesDialog } from "./ManageCategoriesDialog";
 
@@ -11,11 +12,12 @@ interface ItemForm {
   description: string;
   location: string;
   images: string[];
+  imageFiles: File[];
 }
 
 export function ReportItemPage() {
   const [items, setItems] = useState<ItemForm[]>([
-    { name: "", categories: [], description: "", location: "", images: [] },
+    { name: "", categories: [], description: "", location: "", images: [], imageFiles: [] },
   ]);
   const [categories, setCategories] = useState<string[]>(defaultCategories);
   const [templates, setTemplates] = useState<ItemTemplate[]>(mockTemplates);
@@ -24,11 +26,12 @@ export function ReportItemPage() {
   const [successMessage, setSuccessMessage] = useState("");
 
   const addItem = () => {
-    setItems([...items, { name: "", categories: [], description: "", location: "", images: [] }]);
+    setItems([...items, { name: "", categories: [], description: "", location: "", images: [], imageFiles: [] }]);
   };
 
   const removeItem = (index: number) => {
     if (items.length > 1) {
+      items[index].images.forEach((image) => URL.revokeObjectURL(image));
       setItems(items.filter((_, i) => i !== index));
     }
   };
@@ -42,30 +45,24 @@ export function ReportItemPage() {
   const handleImageUpload = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files) {
-      const newImages: string[] = [];
       const fileArray = Array.from(files);
+      const newImages = fileArray.map((file) => URL.createObjectURL(file));
       
-      fileArray.forEach((file) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          newImages.push(reader.result as string);
-          if (newImages.length === fileArray.length) {
-            const newItems = [...items];
-            newItems[index] = {
-              ...newItems[index],
-              images: [...newItems[index].images, ...newImages],
-            };
-            setItems(newItems);
-          }
-        };
-        reader.readAsDataURL(file);
-      });
+      const newItems = [...items];
+      newItems[index] = {
+        ...newItems[index],
+        images: [...newItems[index].images, ...newImages],
+        imageFiles: [...newItems[index].imageFiles, ...fileArray],
+      };
+      setItems(newItems);
     }
   };
 
   const removeImage = (itemIndex: number, imageIndex: number) => {
     const newItems = [...items];
+    URL.revokeObjectURL(newItems[itemIndex].images[imageIndex]);
     newItems[itemIndex].images = newItems[itemIndex].images.filter((_, i) => i !== imageIndex);
+    newItems[itemIndex].imageFiles = newItems[itemIndex].imageFiles.filter((_, i) => i !== imageIndex);
     setItems(newItems);
   };
 
@@ -92,12 +89,13 @@ export function ReportItemPage() {
         description: template.description,
         location: template.location,
         images: newItems[index].images, // Keep existing images
+        imageFiles: newItems[index].imageFiles, // Keep existing image files
       };
       setItems(newItems);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validate that all items are filled
@@ -115,14 +113,29 @@ export function ReportItemPage() {
       return;
     }
 
-    // Show success message
-    setSuccessMessage(`Successfully reported ${items.length} item(s)!`);
-    
-    // Reset form
-    setItems([{ name: "", categories: [], description: "", location: "", images: [] }]);
+    try {
+      await Promise.all(
+        items.map((item) =>
+          createLostItem({
+            name: item.name,
+            category: item.categories[0],
+            description: item.description,
+            location: item.location,
+            image: item.imageFiles[0],
+          })
+        )
+      );
 
-    // Clear success message after 3 seconds
-    setTimeout(() => setSuccessMessage(""), 3000);
+      setSuccessMessage(`Successfully reported ${items.length} item(s) to the Django API!`);
+      items.forEach((item) => item.images.forEach((image) => URL.revokeObjectURL(image)));
+      setItems([{ name: "", categories: [], description: "", location: "", images: [], imageFiles: [] }]);
+      window.dispatchEvent(new Event("dust:lost-items-changed"));
+      localStorage.setItem("dust:last-items-change", Date.now().toString());
+      setTimeout(() => setSuccessMessage(""), 3000);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to submit report.";
+      alert(`Could not submit to the Django API: ${message}`);
+    }
   };
 
   const handleSaveTemplate = (template: Omit<ItemTemplate, "id">) => {
