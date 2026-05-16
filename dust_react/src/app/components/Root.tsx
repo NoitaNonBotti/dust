@@ -14,7 +14,7 @@ export function Root() {
             <div className="flex items-center gap-8">
               <Link to="/" className="flex items-center gap-2">
                 <Package className="size-8 text-blue-600" />
-                <span className="font-semibold text-xl">Lost & Found</span>
+                <span className="font-semibold text-xl">DUST</span>
               </Link>
               <div className="flex gap-4">
                 <Link
