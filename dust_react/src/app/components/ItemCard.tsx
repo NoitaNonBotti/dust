@@ -1,5 +1,5 @@
 import { Calendar, MapPin, Tag, AlertCircle } from "lucide-react";
-import { LostItem } from "../types";
+import { canFileClaimOnItem, LostItem } from "../types";
 
 interface ItemCardProps {
   item: LostItem;
@@ -13,8 +13,16 @@ export function ItemCard({ item, onViewDetails }: ItemCardProps) {
     returned: "bg-slate-100 text-slate-800",
   };
 
+  const isClaimClosed = !canFileClaimOnItem(item);
+
   return (
-    <div className="bg-white rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+    <div
+      className={`rounded-lg border shadow-sm overflow-hidden transition-shadow ${
+        isClaimClosed
+          ? "bg-slate-50 border-slate-300 opacity-80"
+          : "bg-white border-slate-200 hover:shadow-md"
+      }`}
+    >
       {/* First image preview */}
       {item.images && item.images.length > 0 && (
         <div className="w-full h-48 bg-slate-100 overflow-hidden">
@@ -53,12 +61,16 @@ export function ItemCard({ item, onViewDetails }: ItemCardProps) {
           </div>
         </div>
 
-        {item.claims.length > 0 && (
-          <div className="flex items-center gap-2 text-sm text-amber-600 mb-4 p-2 bg-amber-50 rounded">
-            <AlertCircle className="size-4" />
-            <span>{item.claims.length} claim(s) pending</span>
-          </div>
-        )}
+        {item.status === "unclaimed" &&
+          item.claims.some((claim) => claim.status === "pending") && (
+            <div className="flex items-center gap-2 text-sm text-amber-600 mb-4 p-2 bg-amber-50 rounded">
+              <AlertCircle className="size-4" />
+              <span>
+                {item.claims.filter((claim) => claim.status === "pending").length} pending
+                claim(s)
+              </span>
+            </div>
+          )}
 
         <button
           onClick={() => onViewDetails(item.id)}

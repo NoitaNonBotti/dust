@@ -407,8 +407,13 @@
           <h3>Example Response</h3>
           <pre>{
   "ok": true,
-  "service": "dust_django"
+  "service": "dust_django",
+  "database": "ok"
 }</pre>
+          <h3>Errors</h3>
+          <ul class="error-list">
+            <li><code>503</code> — database unreachable (<code>ok: false</code>, <code>database: "error"</code>).</li>
+          </ul>
         </div>
       </details>
 
@@ -651,9 +656,10 @@
         </summary>
         <div class="endpoint-body">
           <p>
-            Files a claim on an item. With a <code>student</code> session the claim gets
-            <code>priority: "high"</code>. With no session (guest) it gets
-            <code>priority: "low"</code>.
+            Files a claim on an <code>unclaimed</code> item only. With a <code>student</code> session
+            the claim gets <code>priority: "high"</code>. With no session (guest) it gets
+            <code>priority: "low"</code>. Once an item is <code>claimed</code> or
+            <code>returned</code>, new claims return <code>409</code>.
           </p>
           <h3>Student claim</h3>
           <pre>curl.exe -X POST http://localhost:8000/api/claims/ `

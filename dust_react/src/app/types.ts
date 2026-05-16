@@ -43,3 +43,21 @@ export interface AuthUser {
   name: string;
   email?: string;
 }
+
+/** True when users can still file a new claim on this item. */
+export function canFileClaimOnItem(item: LostItem): boolean {
+  if (item.status !== "unclaimed") {
+    return false;
+  }
+  return !item.claims.some((claim) => claim.status === "approved");
+}
+
+export function claimClosedMessage(item: LostItem): string {
+  if (item.status === "returned") {
+    return "Item Already Returned";
+  }
+  if (item.status === "claimed" || item.claims.some((claim) => claim.status === "approved")) {
+    return "Item Already Claimed";
+  }
+  return "";
+}

@@ -8,6 +8,7 @@ from urllib.request import urlopen
 from uuid import uuid4
 
 from django.conf import settings
+from django.db import connection
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.shortcuts import render
@@ -34,6 +35,10 @@ def homepage(request):
 
 
 def serialize_lost_item(item):
+    claims = item.claims.all()
+    if item.status != LostItem.Status.UNCLAIMED:
+        claims = claims.exclude(status=Claim.Status.PENDING)
+
     return {
         "id": str(item.id),
         "name": item.name,
@@ -43,7 +48,7 @@ def serialize_lost_item(item):
         "dateFound": item.date_found.isoformat(),
         "status": item.status,
         "imageUrl": item.image_url,
-        "claims": [serialize_claim(claim) for claim in item.claims.all()],
+        "claims": [serialize_claim(claim) for claim in claims],
     }
 
 
@@ -103,7 +108,25 @@ def serialize_session(session):
 
 
 def api_health(request):
-    return JsonResponse({"ok": True, "service": "dust_django"})
+    database_ok = True
+    database_error = ""
+
+    try:
+        connection.ensure_connection()
+        LostItem.objects.exists()
+    except Exception as error:
+        database_ok = False
+        database_error = str(error)
+
+    payload = {
+        "ok": database_ok,
+        "service": "dust_django",
+        "database": "ok" if database_ok else "error",
+    }
+    if database_error:
+        payload["databaseError"] = database_error
+
+    return JsonResponse(payload, status=200 if database_ok else 503)
 
 
 def parse_json_body(request):
@@ -375,6 +398,14 @@ def claims_collection(request):
         return JsonResponse({"error": "Missing required fields.", "fields": missing_fields}, status=400)
 
     item = get_object_or_404(LostItem, id=payload["itemId"])
+    if item.status != LostItem.Status.UNCLAIMED or item.claims.filter(
+        status=Claim.Status.APPROVED
+    ).exists():
+        return JsonResponse(
+            {"error": "This item is no longer open for claims."},
+            status=409,
+        )
+
     claim = create_claim_for_item(item, payload, session=session)
     return JsonResponse(serialize_claim(claim), status=201)
 
@@ -430,6 +461,14 @@ def guest_inquiries_collection(request):
         return JsonResponse({"error": "Missing required fields.", "fields": missing_fields}, status=400)
 
     item = get_object_or_404(LostItem, id=payload["itemId"])
+    if item.status != LostItem.Status.UNCLAIMED or item.claims.filter(
+        status=Claim.Status.APPROVED
+    ).exists():
+        return JsonResponse(
+            {"error": "This item is no longer open for claims."},
+            status=409,
+        )
+
     claim_payload = {
         "claimantName": payload["contactName"],
         "claimantEmail": payload["contactEmail"],

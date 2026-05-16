@@ -1,18 +1,20 @@
-import { useCallback, useEffect, useState } from "react";
-import { Calendar, Filter, Search, X } from "lucide-react";
-import { LostItem } from "../types";
-import { mockLostItems, defaultCategories } from "../data/mockData";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Calendar, Search, X } from "lucide-react";
+import { canFileClaimOnItem, LostItem } from "../types";
+import { mockLostItems } from "../data/mockData";
 import { createClaim, createGuestInquiry, getLostItems, sortClaims, updateClaimStatus } from "../api/lostItems";
 import { useAuth } from "../auth";
 import { ItemCard } from "./ItemCard";
 import { ItemDetailsDialog } from "./ItemDetailsDialog";
 import { ClaimDialog } from "./ClaimDialog";
 
+const MAX_CATEGORY_FILTERS = 5;
+
 export function LostItemsPage() {
   const { user, isGuest } = useAuth();
   const [items, setItems] = useState<LostItem[]>(mockLostItems);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [dateFilterMode, setDateFilterMode] = useState<"all" | "before" | "after" | "on" | "between">("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -58,10 +60,22 @@ export function LostItemsPage() {
     };
   }, [loadItems]);
 
-  // Get all unique categories from items plus default categories
-  const allCategories = Array.from(
-    new Set([...defaultCategories, ...items.flatMap((item) => item.categories)])
-  ).sort();
+  const itemCategories = useMemo(
+    () => Array.from(new Set(items.flatMap((item) => item.categories))).sort(),
+    [items]
+  );
+
+  const toggleCategoryFilter = (category: string) => {
+    setSelectedCategories((current) => {
+      if (current.includes(category)) {
+        return current.filter((value) => value !== category);
+      }
+      if (current.length >= MAX_CATEGORY_FILTERS) {
+        return current;
+      }
+      return [...current, category];
+    });
+  };
 
   const filteredItems = items
     .filter((item) => {
@@ -71,7 +85,8 @@ export function LostItemsPage() {
         item.location.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesCategory =
-        selectedCategory === "All" || item.categories.includes(selectedCategory);
+        selectedCategories.length === 0 ||
+        item.categories.some((category) => selectedCategories.includes(category));
 
       const matchesDate = matchesDateFilter(item.dateFound, dateFilterMode, dateFrom, dateTo);
 
@@ -96,6 +111,7 @@ export function LostItemsPage() {
   };
 
   const handleOpenClaim = () => {
+    if (!selectedItem || !canFileClaimOnItem(selectedItem)) return;
     setIsDetailsDialogOpen(false);
     setIsClaimDialogOpen(true);
   };
@@ -109,6 +125,12 @@ export function LostItemsPage() {
       description: string;
     }
   ) => {
+    const item = items.find((entry) => entry.id === itemId);
+    if (!item || !canFileClaimOnItem(item)) {
+      alert("This item is no longer open for claims.");
+      return;
+    }
+
     try {
       const savedClaim = isGuest
         ? await createGuestInquiry({
@@ -182,33 +204,68 @@ export function LostItemsPage() {
         </p>
       </div>
 
-      <div className="mb-6 flex flex-col sm:flex-row gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search items..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-        <div className="relative">
-          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-slate-400" />
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="pl-10 pr-8 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white min-w-[200px]"
-          >
-            <option value="All">All Categories</option>
-            {allCategories.map((category) => (
-              <option key={category} value={category}>
-                {category}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div className="mb-6 relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-slate-400" />
+        <input
+          type="text"
+          placeholder="Search items..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
       </div>
+
+      {itemCategories.length > 0 && (
+        <div className="mb-6 bg-white border border-slate-200 rounded-lg p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <p className="text-sm font-medium text-slate-700">Filter by category</p>
+            <div className="flex items-center gap-3 text-xs text-slate-500">
+              <span>
+                {selectedCategories.length}/{MAX_CATEGORY_FILTERS} selected
+              </span>
+              {selectedCategories.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategories([])}
+                  className="text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {itemCategories.map((category) => {
+              const isSelected = selectedCategories.includes(category);
+              const isDisabled =
+                !isSelected && selectedCategories.length >= MAX_CATEGORY_FILTERS;
+
+              return (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => toggleCategoryFilter(category)}
+                  disabled={isDisabled}
+                  title={
+                    isDisabled
+                      ? `You can filter by up to ${MAX_CATEGORY_FILTERS} categories`
+                      : undefined
+                  }
+                  className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                    isSelected
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : isDisabled
+                      ? "bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed"
+                      : "bg-white text-slate-700 border-slate-300 hover:border-blue-400 hover:text-blue-700"
+                  }`}
+                >
+                  {category}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="mb-6 bg-white border border-slate-200 rounded-lg p-4">
         <div className="flex flex-col lg:flex-row gap-4 lg:items-end">
