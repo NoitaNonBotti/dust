@@ -9,6 +9,9 @@ pnpm-lock.yaml
 yarn.lock
 
 .ignore-this
-dust_django/.env
-dust_react/.env
+
+# Environment (use repo-root .env; see .env.example)
+.env
+.env.local
+.env.*.local
 

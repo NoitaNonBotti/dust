@@ -3,7 +3,10 @@ import path from 'path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 
+const repoRoot = path.resolve(__dirname, '..')
+
 export default defineConfig({
+  envDir: repoRoot,
   plugins: [
     react(),
     tailwindcss(),
