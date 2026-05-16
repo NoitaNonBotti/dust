@@ -234,7 +234,6 @@
           <p>Development reference for the Django REST-style endpoints used by the React frontend.</p>
         </div>
         <nav class="actions" aria-label="Quick links">
-          <a class="button" href="/api/health/">Health JSON</a>
           <a class="button" href="/api/lost-items/">Items JSON</a>
           <a class="button" href="/admin/">Django Admin</a>
           <a class="button" href="http://localhost:5173/">React Frontend</a>
@@ -258,12 +257,6 @@
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td>GET</td>
-              <td><code>/api/health/</code></td>
-              <td>Check whether the backend API is running.</td>
-              <td><a class="endpoint-link" href="#get-health">Open</a></td>
-            </tr>
             <tr>
               <td>GET</td>
               <td><code>/api/lost-items/</code></td>
@@ -291,33 +284,6 @@
           </tbody>
         </table>
       </section>
-
-      <details class="endpoint" id="get-health">
-        <summary class="endpoint-header">
-          <span class="method get">GET</span>
-          <span class="path">/api/health/</span>
-        </summary>
-        <div class="endpoint-body">
-          <p>Use this as a lightweight readiness check before starting frontend API work.</p>
-
-          <h3>PowerShell Example</h3>
-          <pre>curl.exe http://localhost:8000/api/health/</pre>
-
-          <h3>Parameters</h3>
-          <p class="muted">None.</p>
-
-          <h3>Example Response</h3>
-          <pre>{
-  "ok": true,
-  "service": "dust_django"
-}</pre>
-
-          <h3>Optional Error Handling</h3>
-          <ul class="error-list">
-            <li>Connection refused: Django is not running or is not on port 8000.</li>
-          </ul>
-        </div>
-      </details>
 
       <details class="endpoint" id="get-lost-items">
         <summary class="endpoint-header">
