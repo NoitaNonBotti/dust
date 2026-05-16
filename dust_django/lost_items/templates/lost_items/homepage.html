@@ -219,6 +219,16 @@
         color: #475569;
       }
 
+      .tag {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: #e2e8f0;
+        color: #334155;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
       @media (max-width: 820px) {
         header {
           flex-direction: column;
@@ -234,6 +244,7 @@
           <p>Development reference for the Django REST-style endpoints used by the React frontend.</p>
         </div>
         <nav class="actions" aria-label="Quick links">
+          <a class="button" href="/api/health/">Health JSON</a>
           <a class="button" href="/api/lost-items/">Items JSON</a>
           <a class="button" href="/admin/">Django Admin</a>
           <a class="button" href="http://localhost:5173/">React Frontend</a>
@@ -243,6 +254,45 @@
       <section class="panel">
         <h2>Base URL</h2>
         <p><code>http://localhost:8000</code></p>
+      </section>
+
+      <section class="panel">
+        <h2>Authentication</h2>
+        <p style="margin-bottom: 12px;">
+          Most write endpoints use a session token returned by login. Send it on every authenticated request:
+        </p>
+        <pre>X-DUST-SESSION: &lt;token from login response&gt;</pre>
+        <h3>Roles</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Role</th>
+              <th>How to obtain</th>
+              <th>Typical access</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="tag">guest</span></td>
+              <td>No header (browse only)</td>
+              <td>List items, file low-priority claims, guest inquiries</td>
+            </tr>
+            <tr>
+              <td><span class="tag">student</span></td>
+              <td><code>POST /api/auth/gbox/</code> with Google ID token</td>
+              <td>Report items, file high-priority claims, cancel own claims</td>
+            </tr>
+            <tr>
+              <td><span class="tag">admin</span></td>
+              <td><code>POST /api/auth/admin/</code> or <code>create_dust_admin</code></td>
+              <td>Edit/delete items, approve claims, manage templates</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="muted" style="margin-top: 12px;">
+          GBox login requires <code>GOOGLE_CLIENT_ID</code> on the Django server. Optional
+          <code>GBOX_ALLOWED_DOMAIN</code> restricts student emails (for example <code>@school.edu</code>).
+        </p>
       </section>
 
       <section class="panel">
@@ -259,31 +309,194 @@
           <tbody>
             <tr>
               <td>GET</td>
+              <td><code>/api/health/</code></td>
+              <td>Backend health check.</td>
+              <td><a class="endpoint-link" href="#get-health">Open</a></td>
+            </tr>
+            <tr>
+              <td>POST</td>
+              <td><code>/api/auth/gbox/</code></td>
+              <td>Student login via Google OAuth credential.</td>
+              <td><a class="endpoint-link" href="#post-auth-gbox">Open</a></td>
+            </tr>
+            <tr>
+              <td>POST</td>
+              <td><code>/api/auth/admin/</code></td>
+              <td>Admin login with username and password.</td>
+              <td><a class="endpoint-link" href="#post-auth-admin">Open</a></td>
+            </tr>
+            <tr>
+              <td>POST</td>
+              <td><code>/api/auth/logout/</code></td>
+              <td>Invalidate the current session token.</td>
+              <td><a class="endpoint-link" href="#post-auth-logout">Open</a></td>
+            </tr>
+            <tr>
+              <td>GET</td>
               <td><code>/api/lost-items/</code></td>
-              <td>List all saved lost items.</td>
+              <td>List all lost items (includes nested claims).</td>
               <td><a class="endpoint-link" href="#get-lost-items">Open</a></td>
             </tr>
             <tr>
               <td>POST</td>
               <td><code>/api/lost-items/</code></td>
-              <td>Create a lost item. Accepts JSON or multipart form data with an image file.</td>
+              <td>Report a found item (student or admin session required).</td>
               <td><a class="endpoint-link" href="#post-lost-items">Open</a></td>
             </tr>
             <tr>
               <td>PATCH</td>
               <td><code>/api/lost-items/&lt;id&gt;/</code></td>
-              <td>Update a saved lost item. Requires the temporary admin password header.</td>
+              <td>Update a lost item (admin session required).</td>
               <td><a class="endpoint-link" href="#patch-lost-item">Open</a></td>
             </tr>
             <tr>
               <td>DELETE</td>
               <td><code>/api/lost-items/&lt;id&gt;/</code></td>
-              <td>Delete a saved lost item. Requires the temporary admin password header.</td>
+              <td>Delete a lost item (admin session required).</td>
               <td><a class="endpoint-link" href="#delete-lost-item">Open</a></td>
+            </tr>
+            <tr>
+              <td>POST</td>
+              <td><code>/api/claims/</code></td>
+              <td>File a claim (student = high priority; no session = low/guest).</td>
+              <td><a class="endpoint-link" href="#post-claims">Open</a></td>
+            </tr>
+            <tr>
+              <td>PATCH</td>
+              <td><code>/api/claims/&lt;id&gt;/</code></td>
+              <td>Update claim status (approve/reject/cancel).</td>
+              <td><a class="endpoint-link" href="#patch-claim">Open</a></td>
+            </tr>
+            <tr>
+              <td>POST</td>
+              <td><code>/api/guest-inquiries/</code></td>
+              <td>Legacy guest assistance path (also creates a low-priority claim).</td>
+              <td><a class="endpoint-link" href="#post-guest-inquiries">Open</a></td>
+            </tr>
+            <tr>
+              <td>GET</td>
+              <td><code>/api/templates/global/</code></td>
+              <td>List global item templates.</td>
+              <td><a class="endpoint-link" href="#get-templates-global">Open</a></td>
+            </tr>
+            <tr>
+              <td>POST</td>
+              <td><code>/api/templates/global/</code></td>
+              <td>Create a global template (admin session required).</td>
+              <td><a class="endpoint-link" href="#post-templates-global">Open</a></td>
+            </tr>
+            <tr>
+              <td>DELETE</td>
+              <td><code>/api/templates/global/&lt;id&gt;/</code></td>
+              <td>Delete a global template (admin session required).</td>
+              <td><a class="endpoint-link" href="#delete-template-global">Open</a></td>
             </tr>
           </tbody>
         </table>
       </section>
+
+      <details class="endpoint" id="get-health">
+        <summary class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/health/</span>
+        </summary>
+        <div class="endpoint-body">
+          <p>Simple readiness check for the Django API.</p>
+          <h3>PowerShell Example</h3>
+          <pre>curl.exe http://localhost:8000/api/health/</pre>
+          <h3>Example Response</h3>
+          <pre>{
+  "ok": true,
+  "service": "dust_django"
+}</pre>
+        </div>
+      </details>
+
+      <details class="endpoint" id="post-auth-gbox">
+        <summary class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/auth/gbox/</span>
+        </summary>
+        <div class="endpoint-body">
+          <p>Verifies a Google ID token and creates a <code>student</code> session.</p>
+          <h3>PowerShell Example</h3>
+          <pre>curl.exe -X POST http://localhost:8000/api/auth/gbox/ `
+  -H "Content-Type: application/json" `
+  -d "{\"credential\":\"GOOGLE_ID_TOKEN_FROM_FRONTEND\"}"</pre>
+          <h3>JSON Body</h3>
+          <table>
+            <thead>
+              <tr><th>Name</th><th>Required</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>credential</code></td>
+                <td>Yes</td>
+                <td>Google Sign-In ID token from the React client.</td>
+              </tr>
+            </tbody>
+          </table>
+          <h3>Example Response</h3>
+          <pre>{
+  "user": {
+    "token": "a1b2c3...",
+    "role": "student",
+    "name": "Jane Student",
+    "email": "jane@school.edu"
+  }
+}</pre>
+          <h3>Errors</h3>
+          <ul class="error-list">
+            <li><code>400</code> — missing credential or invalid JSON.</li>
+            <li><code>401</code> — token verification failed or email not allowed.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="endpoint" id="post-auth-admin">
+        <summary class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/auth/admin/</span>
+        </summary>
+        <div class="endpoint-body">
+          <p>Authenticates a console-managed admin account and returns a session token.</p>
+          <h3>PowerShell Example</h3>
+          <pre>curl.exe -X POST http://localhost:8000/api/auth/admin/ `
+  -H "Content-Type: application/json" `
+  -d "{\"username\":\"admin\",\"password\":\"your-password\"}"</pre>
+          <p class="muted" style="margin-top: 10px;">
+            Create admins with: <code>python manage.py create_dust_admin</code>
+          </p>
+          <h3>Example Response</h3>
+          <pre>{
+  "user": {
+    "token": "d4e5f6...",
+    "role": "admin",
+    "name": "admin",
+    "email": ""
+  }
+}</pre>
+          <h3>Errors</h3>
+          <ul class="error-list">
+            <li><code>401</code> — invalid username or password.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="endpoint" id="post-auth-logout">
+        <summary class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/auth/logout/</span>
+        </summary>
+        <div class="endpoint-body">
+          <p>Deletes the session matching <code>X-DUST-SESSION</code>.</p>
+          <h3>PowerShell Example</h3>
+          <pre>curl.exe -X POST http://localhost:8000/api/auth/logout/ `
+  -H "X-DUST-SESSION: YOUR_TOKEN_HERE"</pre>
+          <h3>Example Response</h3>
+          <pre>{ "ok": true }</pre>
+        </div>
+      </details>
 
       <details class="endpoint" id="get-lost-items">
         <summary class="endpoint-header">
@@ -291,14 +504,9 @@
           <span class="path">/api/lost-items/</span>
         </summary>
         <div class="endpoint-body">
-          <p>Fetches the current item collection for the Lost Items and Admin screens.</p>
-
+          <p>Public list used by the Lost Items and Admin screens. Each item includes its claims (high priority first).</p>
           <h3>PowerShell Example</h3>
           <pre>curl.exe http://localhost:8000/api/lost-items/</pre>
-
-          <h3>Parameters</h3>
-          <p class="muted">None.</p>
-
           <h3>Example Response</h3>
           <pre>{
   "items": [
@@ -310,15 +518,36 @@
       "location": "Cafeteria",
       "dateFound": "2026-05-07",
       "status": "unclaimed",
-      "imageUrl": "/media/lost_items/example.png"
+      "imageUrl": "/media/lost_items/example.png",
+      "claims": [
+        {
+          "id": "3",
+          "itemId": "1",
+          "claimantName": "Jane Student",
+          "claimantEmail": "jane@school.edu",
+          "claimantPhone": "555-0100",
+          "description": "It has my student ID inside.",
+          "dateSubmitted": "2026-05-07",
+          "status": "pending",
+          "priority": "high",
+          "createdByToken": "abc123..."
+        },
+        {
+          "id": "4",
+          "itemId": "1",
+          "claimantName": "Guest User",
+          "claimantEmail": "guest@example.com",
+          "claimantPhone": "",
+          "description": "I think this might be my bag.",
+          "dateSubmitted": "2026-05-07",
+          "status": "pending",
+          "priority": "low",
+          "createdByToken": ""
+        }
+      ]
     }
   ]
 }</pre>
-
-          <h3>Optional Error Handling</h3>
-          <ul class="error-list">
-            <li>Connection refused: Django is not running or is not on port 8000.</li>
-          </ul>
         </div>
       </details>
 
@@ -328,74 +557,40 @@
           <span class="path">/api/lost-items/</span>
         </summary>
         <div class="endpoint-body">
-          <p>Creates an item record from the reporting workflow, including optional local image storage.</p>
-
+          <p>Creates an item from the Report Item workflow. Requires a student or admin session.</p>
           <h3>PowerShell JSON Example</h3>
           <pre>curl.exe -X POST http://localhost:8000/api/lost-items/ `
   -H "Content-Type: application/json" `
-  -d "{\"name\":\"Blue Backpack\",\"category\":\"Bags\",\"description\":\"Navy blue backpack found near the cafeteria.\",\"location\":\"Cafeteria\",\"imageUrl\":\"\"}"</pre>
-
+  -H "X-DUST-SESSION: YOUR_TOKEN_HERE" `
+  -d "{\"name\":\"Blue Backpack\",\"category\":\"Bags\",\"description\":\"Navy blue backpack.\",\"location\":\"Cafeteria\",\"imageUrl\":\"\"}"</pre>
           <h3>PowerShell Image Upload Example</h3>
           <pre>curl.exe -X POST http://localhost:8000/api/lost-items/ `
+  -H "X-DUST-SESSION: YOUR_TOKEN_HERE" `
   -F "name=Blue Backpack" `
   -F "category=Bags" `
   -F "description=Navy blue backpack found near the cafeteria." `
   -F "location=Cafeteria" `
   -F "image=@C:\path\to\image.png"</pre>
-
           <h3>Parameters</h3>
           <table>
             <thead>
-              <tr>
-                <th>Name</th>
-                <th>Required</th>
-                <th>Description</th>
-              </tr>
+              <tr><th>Name</th><th>Required</th><th>Description</th></tr>
             </thead>
             <tbody>
-              <tr>
-                <td><code>name</code></td>
-                <td>Yes</td>
-                <td>Short item name.</td>
-              </tr>
-              <tr>
-                <td><code>category</code></td>
-                <td>Yes</td>
-                <td>Single category stored by the basic backend model.</td>
-              </tr>
-              <tr>
-                <td><code>description</code></td>
-                <td>Yes</td>
-                <td>Details that help identify the item.</td>
-              </tr>
-              <tr>
-                <td><code>location</code></td>
-                <td>Yes</td>
-                <td>Where the item was found or can be retrieved.</td>
-              </tr>
-              <tr>
-                <td><code>dateFound</code></td>
-                <td>No</td>
-                <td>Date in <code>YYYY-MM-DD</code> format. Defaults to today's server date.</td>
-              </tr>
-              <tr>
-                <td><code>imageUrl</code></td>
-                <td>No</td>
-                <td>Existing image URL/path for JSON requests.</td>
-              </tr>
-              <tr>
-                <td><code>image</code></td>
-                <td>No</td>
-                <td>Multipart image file. Supported types: JPEG, PNG, GIF, WebP.</td>
-              </tr>
+              <tr><td><code>X-DUST-SESSION</code></td><td>Yes</td><td>Student or admin session token.</td></tr>
+              <tr><td><code>name</code></td><td>Yes</td><td>Short item name.</td></tr>
+              <tr><td><code>category</code></td><td>Yes</td><td>Single category string.</td></tr>
+              <tr><td><code>description</code></td><td>Yes</td><td>Item details.</td></tr>
+              <tr><td><code>location</code></td><td>Yes</td><td>Where the item was found.</td></tr>
+              <tr><td><code>dateFound</code></td><td>No</td><td><code>YYYY-MM-DD</code>. Defaults to today.</td></tr>
+              <tr><td><code>imageUrl</code></td><td>No</td><td>Image path/URL for JSON requests.</td></tr>
+              <tr><td><code>image</code></td><td>No</td><td>Multipart file (JPEG, PNG, GIF, WebP).</td></tr>
             </tbody>
           </table>
-
-          <h3>Optional Error Handling</h3>
+          <h3>Errors</h3>
           <ul class="error-list">
-            <li><code>400 Invalid JSON body.</code>: request body was not valid JSON.</li>
-            <li><code>400 Missing required fields.</code>: one or more required fields were empty.</li>
-            <li><code>400 Image must be a JPEG, PNG, GIF, or WebP file.</code>: unsupported uploaded image type.</li>
+            <li><code>401</code> — student or admin login required.</li>
+            <li><code>400</code> — invalid JSON, missing fields, or bad image type.</li>
           </ul>
         </div>
       </details>
@@ -406,64 +601,30 @@
           <span class="path">/api/lost-items/&lt;id&gt;/</span>
         </summary>
         <div class="endpoint-body">
-          <p>Applies admin dashboard edits to one item, including status and optional image replacement.</p>
-
+          <p>Admin dashboard edits for one item, including status and optional image replacement.</p>
           <h3>PowerShell Example</h3>
           <pre>curl.exe -X PATCH http://localhost:8000/api/lost-items/1/ `
   -H "Content-Type: application/json" `
-  -H "X-DUST-ADMIN-PASSWORD: password" `
+  -H "X-DUST-SESSION: ADMIN_TOKEN_HERE" `
   -d "{\"name\":\"Updated Backpack\",\"category\":\"Bags\",\"description\":\"Updated description\",\"location\":\"Library\",\"dateFound\":\"2026-05-07\",\"status\":\"claimed\"}"</pre>
-
           <h3>Parameters</h3>
           <table>
             <thead>
-              <tr>
-                <th>Name</th>
-                <th>Required</th>
-                <th>Description</th>
-              </tr>
+              <tr><th>Name</th><th>Required</th><th>Description</th></tr>
             </thead>
             <tbody>
-              <tr>
-                <td><code>id</code></td>
-                <td>Yes</td>
-                <td>Lost item ID in the URL path.</td>
-              </tr>
-              <tr>
-                <td><code>X-DUST-ADMIN-PASSWORD</code></td>
-                <td>Yes</td>
-                <td>Temporary admin header. Current development value is <code>password</code>.</td>
-              </tr>
-              <tr>
-                <td><code>name</code>, <code>category</code>, <code>description</code>, <code>location</code></td>
-                <td>No</td>
-                <td>Text fields to update.</td>
-              </tr>
-              <tr>
-                <td><code>dateFound</code></td>
-                <td>No</td>
-                <td>Date in <code>YYYY-MM-DD</code> format.</td>
-              </tr>
-              <tr>
-                <td><code>status</code></td>
-                <td>No</td>
-                <td>One of <code>unclaimed</code>, <code>claimed</code>, or <code>returned</code>.</td>
-              </tr>
-              <tr>
-                <td><code>imageUrl</code> or <code>image</code></td>
-                <td>No</td>
-                <td>Replacement image path/URL or multipart image file.</td>
-              </tr>
+              <tr><td><code>id</code></td><td>Yes</td><td>Lost item ID in the URL path.</td></tr>
+              <tr><td><code>X-DUST-SESSION</code></td><td>Yes</td><td>Admin session token.</td></tr>
+              <tr><td><code>name</code>, <code>category</code>, <code>description</code>, <code>location</code></td><td>No</td><td>Text fields to update.</td></tr>
+              <tr><td><code>dateFound</code></td><td>No</td><td><code>YYYY-MM-DD</code>.</td></tr>
+              <tr><td><code>status</code></td><td>No</td><td><code>unclaimed</code>, <code>claimed</code>, or <code>returned</code>.</td></tr>
+              <tr><td><code>imageUrl</code> or <code>image</code></td><td>No</td><td>Replacement image.</td></tr>
             </tbody>
           </table>
-
-          <h3>Optional Error Handling</h3>
+          <h3>Errors</h3>
           <ul class="error-list">
-            <li><code>401 Admin password is required.</code>: missing or incorrect temporary admin header.</li>
-            <li><code>404 Not Found</code>: no lost item exists with that ID.</li>
-            <li><code>400 Invalid JSON body.</code>: request body was not valid JSON.</li>
-            <li><code>400 Invalid item status.</code>: status was not one of the accepted values.</li>
-            <li><code>400 Image must be a JPEG, PNG, GIF, or WebP file.</code>: unsupported uploaded image type.</li>
+            <li><code>401</code> — admin login required.</li>
+            <li><code>404</code> — item not found.</li>
           </ul>
         </div>
       </details>
@@ -474,47 +635,192 @@
           <span class="path">/api/lost-items/&lt;id&gt;/</span>
         </summary>
         <div class="endpoint-body">
-          <p>Removes an item from the database when an admin decides the record should no longer appear.</p>
-
+          <p>Removes a lost item record (admin only).</p>
           <h3>PowerShell Example</h3>
           <pre>curl.exe -X DELETE http://localhost:8000/api/lost-items/1/ `
-  -H "X-DUST-ADMIN-PASSWORD: password"</pre>
+  -H "X-DUST-SESSION: ADMIN_TOKEN_HERE"</pre>
+          <h3>Example Response</h3>
+          <pre>{ "deleted": true }</pre>
+        </div>
+      </details>
 
-          <h3>Parameters</h3>
+      <details class="endpoint" id="post-claims">
+        <summary class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/claims/</span>
+        </summary>
+        <div class="endpoint-body">
+          <p>
+            Files a claim on an item. With a <code>student</code> session the claim gets
+            <code>priority: "high"</code>. With no session (guest) it gets
+            <code>priority: "low"</code>.
+          </p>
+          <h3>Student claim</h3>
+          <pre>curl.exe -X POST http://localhost:8000/api/claims/ `
+  -H "Content-Type: application/json" `
+  -H "X-DUST-SESSION: STUDENT_TOKEN_HERE" `
+  -d "{\"itemId\":\"1\",\"claimantName\":\"Jane Student\",\"claimantEmail\":\"jane@school.edu\",\"claimantPhone\":\"555-0100\",\"description\":\"It has my ID inside.\"}"</pre>
+          <h3>Guest claim (no session)</h3>
+          <pre>curl.exe -X POST http://localhost:8000/api/claims/ `
+  -H "Content-Type: application/json" `
+  -d "{\"itemId\":\"1\",\"claimantName\":\"Guest User\",\"claimantEmail\":\"guest@example.com\",\"claimantPhone\":\"\",\"description\":\"I think this is mine.\"}"</pre>
+          <h3>JSON Body</h3>
           <table>
             <thead>
-              <tr>
-                <th>Name</th>
-                <th>Required</th>
-                <th>Description</th>
-              </tr>
+              <tr><th>Name</th><th>Required</th><th>Description</th></tr>
             </thead>
             <tbody>
-              <tr>
-                <td><code>id</code></td>
-                <td>Yes</td>
-                <td>Lost item ID in the URL path.</td>
-              </tr>
-              <tr>
-                <td><code>X-DUST-ADMIN-PASSWORD</code></td>
-                <td>Yes</td>
-                <td>Temporary admin header. Current development value is <code>password</code>.</td>
-              </tr>
+              <tr><td><code>itemId</code></td><td>Yes</td><td>Lost item ID.</td></tr>
+              <tr><td><code>claimantName</code></td><td>Yes</td><td>Claimant full name.</td></tr>
+              <tr><td><code>claimantEmail</code></td><td>Yes</td><td>Contact email.</td></tr>
+              <tr><td><code>claimantPhone</code></td><td>No</td><td>Contact phone (recommended for students).</td></tr>
+              <tr><td><code>description</code></td><td>Yes</td><td>Why the item belongs to the claimant.</td></tr>
             </tbody>
           </table>
-
           <h3>Example Response</h3>
           <pre>{
-  "deleted": true
+  "id": "5",
+  "itemId": "1",
+  "claimantName": "Guest User",
+  "claimantEmail": "guest@example.com",
+  "claimantPhone": "",
+  "description": "I think this is mine.",
+  "dateSubmitted": "2026-05-07",
+  "status": "pending",
+  "priority": "low",
+  "createdByToken": ""
 }</pre>
+        </div>
+      </details>
 
-          <h3>Optional Error Handling</h3>
+      <details class="endpoint" id="patch-claim">
+        <summary class="endpoint-header">
+          <span class="method patch">PATCH</span>
+          <span class="path">/api/claims/&lt;id&gt;/</span>
+        </summary>
+        <div class="endpoint-body">
+          <p>Updates claim status. Approving a claim sets the parent item status to <code>claimed</code>.</p>
+          <h3>Admin approve</h3>
+          <pre>curl.exe -X PATCH http://localhost:8000/api/claims/5/ `
+  -H "Content-Type: application/json" `
+  -H "X-DUST-SESSION: ADMIN_TOKEN_HERE" `
+  -d "{\"status\":\"approved\"}"</pre>
+          <h3>Student cancel own claim</h3>
+          <pre>curl.exe -X PATCH http://localhost:8000/api/claims/5/ `
+  -H "Content-Type: application/json" `
+  -H "X-DUST-SESSION: STUDENT_TOKEN_HERE" `
+  -d "{\"status\":\"cancelled\"}"</pre>
+          <h3>Status values</h3>
+          <p><code>pending</code>, <code>approved</code>, <code>rejected</code>, <code>cancelled</code></p>
+          <h3>Permissions</h3>
           <ul class="error-list">
-            <li><code>401 Admin password is required.</code>: missing or incorrect temporary admin header.</li>
-            <li><code>404 Not Found</code>: no lost item exists with that ID.</li>
+            <li><code>approved</code> / <code>rejected</code> — admin only.</li>
+            <li><code>cancelled</code> — claim owner (matching session token) or admin.</li>
+            <li>Guest claims have an empty <code>createdByToken</code>; only admins can cancel them.</li>
           </ul>
         </div>
       </details>
+
+      <details class="endpoint" id="post-guest-inquiries">
+        <summary class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/guest-inquiries/</span>
+        </summary>
+        <div class="endpoint-body">
+          <p>
+            Legacy guest assistance endpoint. Still accepted for compatibility; creates a
+            low-priority claim and a <code>GuestInquiry</code> audit row. Prefer
+            <code>POST /api/claims/</code> without a session for new clients.
+          </p>
+          <h3>PowerShell Example</h3>
+          <pre>curl.exe -X POST http://localhost:8000/api/guest-inquiries/ `
+  -H "Content-Type: application/json" `
+  -d "{\"itemId\":\"1\",\"contactName\":\"Guest User\",\"contactEmail\":\"guest@example.com\",\"contactPhone\":\"\",\"message\":\"Please help me verify ownership.\"}"</pre>
+          <h3>JSON Body</h3>
+          <table>
+            <thead>
+              <tr><th>Name</th><th>Required</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>itemId</code></td><td>Yes</td><td>Lost item ID.</td></tr>
+              <tr><td><code>contactName</code></td><td>Yes</td><td>Guest name.</td></tr>
+              <tr><td><code>contactEmail</code></td><td>Yes</td><td>Guest email.</td></tr>
+              <tr><td><code>contactPhone</code></td><td>No</td><td>Guest phone.</td></tr>
+              <tr><td><code>message</code></td><td>Yes</td><td>Assistance request message.</td></tr>
+            </tbody>
+          </table>
+          <p class="muted" style="margin-top: 10px;">Returns the same claim object shape as <code>POST /api/claims/</code>.</p>
+        </div>
+      </details>
+
+      <details class="endpoint" id="get-templates-global">
+        <summary class="endpoint-header">
+          <span class="method get">GET</span>
+          <span class="path">/api/templates/global/</span>
+        </summary>
+        <div class="endpoint-body">
+          <p>Lists reusable global templates for the Report Item screen.</p>
+          <h3>PowerShell Example</h3>
+          <pre>curl.exe http://localhost:8000/api/templates/global/</pre>
+          <h3>Example Response</h3>
+          <pre>{
+  "templates": [
+    {
+      "id": "global-1",
+      "backendId": "1",
+      "scope": "global",
+      "name": "Water Bottle",
+      "categories": ["Containers"],
+      "description": "Standard reusable bottle.",
+      "location": "Gym"
+    }
+  ]
+}</pre>
+        </div>
+      </details>
+
+      <details class="endpoint" id="post-templates-global">
+        <summary class="endpoint-header">
+          <span class="method post">POST</span>
+          <span class="path">/api/templates/global/</span>
+        </summary>
+        <div class="endpoint-body">
+          <p>Creates a global template (admin session required).</p>
+          <h3>PowerShell Example</h3>
+          <pre>curl.exe -X POST http://localhost:8000/api/templates/global/ `
+  -H "Content-Type: application/json" `
+  -H "X-DUST-SESSION: ADMIN_TOKEN_HERE" `
+  -d "{\"name\":\"Water Bottle\",\"category\":\"Containers\",\"description\":\"Standard bottle.\",\"location\":\"Gym\"}"</pre>
+          <h3>JSON Body</h3>
+          <table>
+            <thead>
+              <tr><th>Name</th><th>Required</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>name</code></td><td>Yes</td><td>Template name.</td></tr>
+              <tr><td><code>category</code></td><td>Yes</td><td>Default category.</td></tr>
+              <tr><td><code>description</code></td><td>Yes</td><td>Default description.</td></tr>
+              <tr><td><code>location</code></td><td>No</td><td>Default location.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details class="endpoint" id="delete-template-global">
+        <summary class="endpoint-header">
+          <span class="method delete">DELETE</span>
+          <span class="path">/api/templates/global/&lt;id&gt;/</span>
+        </summary>
+        <div class="endpoint-body">
+          <p>Deletes a global template by numeric <code>backendId</code> (admin session required).</p>
+          <h3>PowerShell Example</h3>
+          <pre>curl.exe -X DELETE http://localhost:8000/api/templates/global/1/ `
+  -H "X-DUST-SESSION: ADMIN_TOKEN_HERE"</pre>
+          <h3>Example Response</h3>
+          <pre>{ "deleted": true }</pre>
+        </div>
+      </details>
+
       <script>
         document.querySelectorAll('a[href^="#"]').forEach((link) => {
           link.addEventListener("click", () => {
