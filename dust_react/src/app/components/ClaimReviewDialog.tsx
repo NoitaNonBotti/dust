@@ -6,7 +6,7 @@ interface ClaimReviewDialogProps {
   onClose: () => void;
   item: LostItem;
   claim: Claim;
-  onUpdate: (itemId: string, claimId: string, status: "approved" | "rejected") => void;
+  onUpdate: (itemId: string, claimId: string, status: "approved" | "rejected" | "cancelled") => void;
 }
 
 export function ClaimReviewDialog({
@@ -83,6 +83,12 @@ export function ClaimReviewDialog({
             </div>
           </div>
 
+          {claim.priority === "low" && (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+              Guest assistance request — lower priority than signed-in student claims.
+            </div>
+          )}
+
           <div>
             <h3 className="font-medium text-lg mb-2">Claim Status</h3>
             <span
@@ -100,6 +106,14 @@ export function ClaimReviewDialog({
 
           {claim.status === "pending" && (
             <div className="flex gap-3 pt-4">
+              <button
+                onClick={() => {
+                  onUpdate(item.id, claim.id, "cancelled");
+                }}
+                className="flex-1 px-4 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 transition-colors"
+              >
+                Cancel Claim
+              </button>
               <button
                 onClick={() => {
                   onUpdate(item.id, claim.id, "rejected");

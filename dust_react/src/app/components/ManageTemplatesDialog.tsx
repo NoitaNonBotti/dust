@@ -78,6 +78,9 @@ export function ManageTemplatesDialog({
             >
               <div>
                 <h3 className="font-medium">{template.name}</h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  {template.scope === "global" ? "Global template" : "Local template"}
+                </p>
                 <p className="text-sm text-slate-600 mt-1">{template.description}</p>
                 <p className="text-sm text-slate-500 mt-1">
                   Categories: {template.categories.join(", ")}

@@ -1,8 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Save, Trash2, FileText, X, Upload } from "lucide-react";
 import { ItemTemplate } from "../types";
 import { defaultCategories, mockTemplates } from "../data/mockData";
-import { createLostItem } from "../api/lostItems";
+import {
+  createGlobalTemplate,
+  createLostItem,
+  deleteGlobalTemplate,
+  getGlobalTemplates,
+} from "../api/lostItems";
+import { useAuth } from "../auth";
+import { AccessNotice } from "./AccessNotice";
 import { ManageTemplatesDialog } from "./ManageTemplatesDialog";
 import { ManageCategoriesDialog } from "./ManageCategoriesDialog";
 
@@ -16,14 +23,33 @@ interface ItemForm {
 }
 
 export function ReportItemPage() {
+  const { isGuest, isAdmin } = useAuth();
   const [items, setItems] = useState<ItemForm[]>([
     { name: "", categories: [], description: "", location: "", images: [], imageFiles: [] },
   ]);
   const [categories, setCategories] = useState<string[]>(defaultCategories);
-  const [templates, setTemplates] = useState<ItemTemplate[]>(mockTemplates);
+  const [templates, setTemplates] = useState<ItemTemplate[]>([]);
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+
+  useEffect(() => {
+    const storedLocalTemplates = JSON.parse(
+      sessionStorage.getItem("dust-local-templates") || "[]"
+    ) as ItemTemplate[];
+    const starterLocalTemplates = mockTemplates.map((template) => ({
+      ...template,
+      scope: "local" as const,
+    }));
+
+    getGlobalTemplates()
+      .then((globalTemplates) => {
+        setTemplates([...globalTemplates, ...storedLocalTemplates, ...starterLocalTemplates]);
+      })
+      .catch(() => {
+        setTemplates([...storedLocalTemplates, ...starterLocalTemplates]);
+      });
+  }, []);
 
   const addItem = () => {
     setItems([...items, { name: "", categories: [], description: "", location: "", images: [], imageFiles: [] }]);
@@ -138,16 +164,52 @@ export function ReportItemPage() {
     }
   };
 
-  const handleSaveTemplate = (template: Omit<ItemTemplate, "id">) => {
+  const handleSaveTemplate = async (template: Omit<ItemTemplate, "id">) => {
+    if (isAdmin) {
+      try {
+        const globalTemplate = await createGlobalTemplate({
+          ...template,
+          scope: "global",
+        });
+        setTemplates([globalTemplate, ...templates]);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unable to save global template.";
+        alert(`Could not save global template: ${message}`);
+      }
+      return;
+    }
+
     const newTemplate: ItemTemplate = {
       ...template,
-      id: Date.now().toString(),
+      id: `local-${Date.now()}`,
+      scope: "local",
     };
-    setTemplates([...templates, newTemplate]);
+    const nextTemplates = [...templates, newTemplate];
+    setTemplates(nextTemplates);
+    sessionStorage.setItem(
+      "dust-local-templates",
+      JSON.stringify(nextTemplates.filter((item) => item.scope !== "global"))
+    );
   };
 
-  const handleDeleteTemplate = (templateId: string) => {
-    setTemplates(templates.filter((t) => t.id !== templateId));
+  const handleDeleteTemplate = async (templateId: string) => {
+    const template = templates.find((item) => item.id === templateId);
+    if (!template) return;
+
+    if (template.scope === "global") {
+      if (!isAdmin) {
+        alert("Only admins can delete global templates.");
+        return;
+      }
+      await deleteGlobalTemplate(template);
+    }
+
+    const nextTemplates = templates.filter((t) => t.id !== templateId);
+    setTemplates(nextTemplates);
+    sessionStorage.setItem(
+      "dust-local-templates",
+      JSON.stringify(nextTemplates.filter((item) => item.scope !== "global"))
+    );
   };
 
   const handleAddCategory = (category: string) => {
@@ -161,6 +223,15 @@ export function ReportItemPage() {
       setCategories(categories.filter((c) => c !== category));
     }
   };
+
+  if (isGuest) {
+    return (
+      <AccessNotice
+        title="Login Required"
+        message="Guests can browse lost items, but reporting found items requires GBox or admin login."
+      />
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

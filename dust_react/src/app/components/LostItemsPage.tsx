@@ -2,12 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 import { Calendar, Filter, Search, X } from "lucide-react";
 import { LostItem } from "../types";
 import { mockLostItems, defaultCategories } from "../data/mockData";
-import { getLostItems } from "../api/lostItems";
+import { createClaim, createGuestInquiry, getLostItems, sortClaims, updateClaimStatus } from "../api/lostItems";
+import { useAuth } from "../auth";
 import { ItemCard } from "./ItemCard";
 import { ItemDetailsDialog } from "./ItemDetailsDialog";
 import { ClaimDialog } from "./ClaimDialog";
 
 export function LostItemsPage() {
+  const { user, isGuest } = useAuth();
   const [items, setItems] = useState<LostItem[]>(mockLostItems);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
@@ -98,7 +100,7 @@ export function LostItemsPage() {
     setIsClaimDialogOpen(true);
   };
 
-  const handleSubmitClaim = (
+  const handleSubmitClaim = async (
     itemId: string,
     claimData: {
       claimantName: string;
@@ -107,24 +109,63 @@ export function LostItemsPage() {
       description: string;
     }
   ) => {
-    setItems(
-      items.map((item) => {
-        if (item.id === itemId) {
-          const newClaim = {
-            id: Date.now().toString(),
+    try {
+      const savedClaim = isGuest
+        ? await createGuestInquiry({
             itemId,
-            ...claimData,
-            dateSubmitted: new Date().toISOString().split("T")[0],
-            status: "pending" as const,
-          };
-          return {
-            ...item,
-            claims: [...item.claims, newClaim],
-          };
-        }
-        return item;
-      })
-    );
+            contactName: claimData.claimantName,
+            contactEmail: claimData.claimantEmail,
+            contactPhone: claimData.claimantPhone,
+            message: claimData.description,
+          })
+        : await createClaim({ itemId, ...claimData });
+
+      const withNewClaim = (claims: LostItem["claims"]) => sortClaims([...claims, savedClaim]);
+
+      setItems(
+        items.map((item) =>
+          item.id === itemId ? { ...item, claims: withNewClaim(item.claims) } : item
+        )
+      );
+      if (selectedItem?.id === itemId) {
+        setSelectedItem({ ...selectedItem, claims: withNewClaim(selectedItem.claims) });
+      }
+      if (isGuest) {
+        alert("Your assistance request was submitted. Admins will review it after student claims.");
+      }
+      window.dispatchEvent(new Event("dust:lost-items-changed"));
+      localStorage.setItem("dust:last-items-change", Date.now().toString());
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to submit request.";
+      alert(`Could not submit: ${message}`);
+    }
+  };
+
+  const handleCancelClaim = async (claimId: string) => {
+    try {
+      const savedClaim = await updateClaimStatus(claimId, "cancelled");
+      setItems(
+        items.map((item) => ({
+          ...item,
+          claims: item.claims.map((claim) =>
+            claim.id === claimId ? savedClaim : claim
+          ),
+        }))
+      );
+      if (selectedItem) {
+        setSelectedItem({
+          ...selectedItem,
+          claims: selectedItem.claims.map((claim) =>
+            claim.id === claimId ? savedClaim : claim
+          ),
+        });
+      }
+      window.dispatchEvent(new Event("dust:lost-items-changed"));
+      localStorage.setItem("dust:last-items-change", Date.now().toString());
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to cancel claim.";
+      alert(`Could not cancel claim: ${message}`);
+    }
   };
 
   return (
@@ -264,6 +305,9 @@ export function LostItemsPage() {
             }}
             item={selectedItem}
             onFileClaim={handleOpenClaim}
+            claimActionLabel={isGuest ? "Request Admin Assistance" : "File a Claim"}
+            currentUserToken={user?.token}
+            onCancelClaim={handleCancelClaim}
           />
 
           <ClaimDialog
@@ -273,6 +317,9 @@ export function LostItemsPage() {
               setSelectedItem(null);
             }}
             item={selectedItem}
+            mode={isGuest ? "inquiry" : "claim"}
+            defaultName={user?.name || ""}
+            defaultEmail={user?.email || ""}
             onSubmit={handleSubmitClaim}
           />
         </>

@@ -20,13 +20,26 @@ export interface Claim {
   claimantPhone: string;
   description: string;
   dateSubmitted: string;
-  status: "pending" | "approved" | "rejected";
+  status: "pending" | "approved" | "rejected" | "cancelled";
+  priority?: "high" | "low";
+  createdByToken?: string;
 }
 
 export interface ItemTemplate {
   id: string;
+  backendId?: string;
+  scope?: "local" | "global";
   name: string;
   categories: string[]; // Changed to array
   description: string;
   location: string;
+}
+
+export type UserRole = "guest" | "student" | "admin";
+
+export interface AuthUser {
+  token: string;
+  role: Exclude<UserRole, "guest">;
+  name: string;
+  email?: string;
 }

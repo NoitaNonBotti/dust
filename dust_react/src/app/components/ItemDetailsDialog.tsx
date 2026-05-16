@@ -6,6 +6,9 @@ interface ItemDetailsDialogProps {
   onClose: () => void;
   item: LostItem;
   onFileClaim: () => void;
+  claimActionLabel?: string;
+  currentUserToken?: string;
+  onCancelClaim?: (claimId: string) => void;
 }
 
 export function ItemDetailsDialog({
@@ -13,6 +16,9 @@ export function ItemDetailsDialog({
   onClose,
   item,
   onFileClaim,
+  claimActionLabel = "File a Claim",
+  currentUserToken,
+  onCancelClaim,
 }: ItemDetailsDialogProps) {
   if (!isOpen) return null;
 
@@ -122,22 +128,41 @@ export function ItemDetailsDialog({
                   >
                     <div className="flex justify-between items-start mb-1">
                       <span className="font-medium">{claim.claimantName}</span>
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-xs ${
-                          claim.status === "pending"
-                            ? "bg-amber-100 text-amber-800"
-                            : claim.status === "approved"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
-                      >
-                        {claim.status}
-                      </span>
+                      <div className="flex flex-wrap justify-end gap-1">
+                        {claim.priority === "low" && (
+                          <span className="px-2 py-0.5 rounded-full text-xs bg-slate-200 text-slate-700">
+                            Guest request
+                          </span>
+                        )}
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-xs ${
+                            claim.status === "pending"
+                              ? "bg-amber-100 text-amber-800"
+                              : claim.status === "approved"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-red-100 text-red-800"
+                          }`}
+                        >
+                          {claim.status}
+                        </span>
+                      </div>
                     </div>
                     <p className="text-sm text-slate-600">{claim.description}</p>
                     <p className="text-xs text-slate-500 mt-1">
                       Submitted {new Date(claim.dateSubmitted).toLocaleDateString()}
                     </p>
+                    {claim.status === "pending" &&
+                      currentUserToken &&
+                      claim.createdByToken === currentUserToken &&
+                      onCancelClaim && (
+                        <button
+                          type="button"
+                          onClick={() => onCancelClaim(claim.id)}
+                          className="mt-2 text-xs text-red-600 hover:text-red-700"
+                        >
+                          Cancel my claim
+                        </button>
+                      )}
                   </div>
                 ))}
               </div>
@@ -150,7 +175,7 @@ export function ItemDetailsDialog({
               disabled={item.status === "returned"}
               className="w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed font-medium"
             >
-              {item.status === "returned" ? "Item Already Returned" : "File a Claim"}
+              {item.status === "returned" ? "Item Already Returned" : claimActionLabel}
             </button>
           </div>
         </div>

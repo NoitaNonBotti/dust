@@ -28,8 +28,15 @@ python manage.py runserver
 Available example endpoints:
 
 ```text
+POST http://localhost:8000/api/auth/gbox/
+POST http://localhost:8000/api/auth/admin/
 GET  http://localhost:8000/api/lost-items/
 POST http://localhost:8000/api/lost-items/
+POST http://localhost:8000/api/claims/
+PATCH http://localhost:8000/api/claims/<id>/
+POST http://localhost:8000/api/guest-inquiries/
+GET  http://localhost:8000/api/templates/global/
+POST http://localhost:8000/api/templates/global/
 ```
 
 Example `POST /api/lost-items/` JSON body:
@@ -87,24 +94,74 @@ reload from Django when the page opens, when the browser window regains focus,
 every few seconds while open, and immediately after a report/edit/delete action
 announces that item data changed.
 
-The React Admin page at `/admin` is protected by a temporary frontend password
-gate. For local development, the password is:
+### Roles and login
 
-```text
-password
+The React app now supports three access modes:
+
+- Guest: can only view lost item listings and send an admin inquiry from an item.
+- Student: logs in through the official Google/GBox popup and can view listings, report items, and file/cancel their own claims.
+- Admin: logs in through username/password and can view the admin tab, manage items, review claims, and manage global templates.
+
+Student GBox login uses Google Identity Services on the React side. Clicking the Google button opens Google's real sign-in popup. React receives a Google ID credential and sends it to Django. Django verifies that credential with Google before creating a student session.
+
+To enable it locally, both frontend and backend must use the same Google OAuth Client ID:
+
+```powershell
+# React / Vite terminal
+$env:VITE_GOOGLE_CLIENT_ID="your-google-client-id.apps.googleusercontent.com"
+pnpm run dev
+
+# Django terminal
+$env:GOOGLE_CLIENT_ID="your-google-client-id.apps.googleusercontent.com"
+$env:GBOX_ALLOWED_DOMAIN="@your-school-domain.edu"
+python manage.py runserver
 ```
 
-After unlocking the dashboard, React loads items from the Django API. Admin edit
-and delete actions call:
+`GBOX_ALLOWED_DOMAIN` is optional for local testing, but should be set when the app is meant to accept only school GBox accounts.
+
+Admin accounts are not created in the UI. Create or reset one from the console:
+
+```bash
+python manage.py create_dust_admin manager --password your-password
+```
+
+Delete an admin account from the console:
+
+```bash
+python manage.py delete_dust_admin manager
+```
+
+After admin login, React loads items from the Django API. Admin edit and delete actions call:
 
 ```text
 PATCH  http://localhost:8000/api/lost-items/<id>/
 DELETE http://localhost:8000/api/lost-items/<id>/
 ```
 
-Those write requests include a temporary `X-DUST-ADMIN-PASSWORD` header. This is
-only a development placeholder and should be replaced with real authentication
-before production use.
+Protected write requests include an `X-DUST-SESSION` header containing the session token returned by the login endpoint.
+
+### Claims and guest inquiries
+
+Students and admins can file real claims. Claims are stored in SQLite and appear in the admin dashboard for review.
+
+Admins can:
+
+- approve claims
+- reject claims
+- cancel claims
+
+The person who filed a claim can also cancel their own pending claim.
+
+Guests cannot file formal claims. Instead, guests can send an inquiry/request to admins from the item listing. This keeps unauthenticated contact separate from verified ownership claims.
+
+### Templates
+
+Templates now have two scopes:
+
+- Local templates: created by students/users and stored in the browser session only.
+- Global templates: created by admins and stored in Django so everyone sees them.
+
+Students can use their local templates plus any global templates. Admins can create/delete global templates from the report page.
 
 The Report Item page sends submitted items to Django using `POST
 /api/lost-items/`. This is only a basic example connection: it maps the first
@@ -145,7 +202,7 @@ http://localhost:8000/
 ```
 
 The Django homepage shows a small API dashboard with backend health, item count,
-recent saved items, and links to the JSON endpoints.
+and links to the JSON endpoints.
 
 You can also quickly test the API in your browser by opening:
 
@@ -195,10 +252,11 @@ If you see the fallback message, make sure the Django server is still running on
 
 In the React app:
 
-1. Go to `Report Item`.
-2. Fill in the item name, category, description, location, and upload at least
+1. Login as a student through the GBox form or login as an admin.
+2. Go to `Report Item`.
+3. Fill in the item name, category, description, location, and upload at least
    one image.
-3. Click `Submit Report`.
+4. Click `Submit Report`.
 
 The page should show a success message saying the item was reported to the
 Django API.

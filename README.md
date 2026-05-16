@@ -78,3 +78,41 @@ I mainly use `pnpm`
   Run `npm run dev` to start the development server.
 
 just copy the url to your browser, and you should have it.
+
+## Roles and admin accounts
+
+The app supports guest, Google/GBox student, and admin access.
+
+- Guests can browse lost items and send admin inquiries.
+- Students login through the official Google/GBox popup, report items, and file/cancel claims.
+- Admins login separately with username/password and can access the admin dashboard.
+
+To enable Google/GBox login locally, create a Google OAuth Client ID for a web app and set matching frontend/backend environment variables:
+
+```powershell
+# React / Vite terminal
+$env:VITE_GOOGLE_CLIENT_ID="your-google-client-id.apps.googleusercontent.com"
+pnpm run dev
+
+# Django terminal
+$env:GOOGLE_CLIENT_ID="your-google-client-id.apps.googleusercontent.com"
+$env:GBOX_ALLOWED_DOMAIN="@your-school-domain.edu"
+python manage.py runserver
+```
+
+`GBOX_ALLOWED_DOMAIN` is optional during development, but should be set for school-only access.
+
+Admin accounts are managed from the Django console, not the UI:
+
+```bash
+cd dust_django
+python manage.py create_dust_admin manager --password your-password
+python manage.py delete_dust_admin manager
+```
+
+Run migrations after pulling backend model changes:
+
+```bash
+cd dust_django
+python manage.py migrate
+```

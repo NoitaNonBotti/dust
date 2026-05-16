@@ -4,6 +4,7 @@ import { LostItemsPage } from "./components/LostItemsPage";
 import { ReportItemPage } from "./components/ReportItemPage";
 import { AdminPage } from "./components/AdminPage";
 import { NotFound } from "./components/NotFound";
+import { LoginPage } from "./components/LoginPage";
 
 export const router = createBrowserRouter([
   {
@@ -11,6 +12,7 @@ export const router = createBrowserRouter([
     Component: Root,
     children: [
       { index: true, Component: LostItemsPage },
+      { path: "login", Component: LoginPage },
       { path: "report", Component: ReportItemPage },
       { path: "admin", Component: AdminPage },
       { path: "*", Component: NotFound },

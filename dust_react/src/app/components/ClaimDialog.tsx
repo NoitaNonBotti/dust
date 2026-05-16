@@ -6,6 +6,9 @@ interface ClaimDialogProps {
   isOpen: boolean;
   onClose: () => void;
   item: LostItem;
+  mode?: "claim" | "inquiry";
+  defaultName?: string;
+  defaultEmail?: string;
   onSubmit: (
     itemId: string,
     claimData: {
@@ -17,10 +20,18 @@ interface ClaimDialogProps {
   ) => void;
 }
 
-export function ClaimDialog({ isOpen, onClose, item, onSubmit }: ClaimDialogProps) {
+export function ClaimDialog({
+  isOpen,
+  onClose,
+  item,
+  mode = "claim",
+  defaultName = "",
+  defaultEmail = "",
+  onSubmit,
+}: ClaimDialogProps) {
   const [formData, setFormData] = useState({
-    claimantName: "",
-    claimantEmail: "",
+    claimantName: defaultName,
+    claimantEmail: defaultEmail,
     claimantPhone: "",
     description: "",
   });
@@ -29,8 +40,8 @@ export function ClaimDialog({ isOpen, onClose, item, onSubmit }: ClaimDialogProp
     e.preventDefault();
     onSubmit(item.id, formData);
     setFormData({
-      claimantName: "",
-      claimantEmail: "",
+      claimantName: defaultName,
+      claimantEmail: defaultEmail,
       claimantPhone: "",
       description: "",
     });
@@ -43,7 +54,9 @@ export function ClaimDialog({ isOpen, onClose, item, onSubmit }: ClaimDialogProp
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center p-6 border-b border-slate-200">
-          <h2 className="text-xl font-semibold">File a Claim</h2>
+          <h2 className="text-xl font-semibold">
+            {mode === "claim" ? "File a Claim" : "Request Admin Assistance"}
+          </h2>
           <button
             onClick={onClose}
             className="text-slate-400 hover:text-slate-600 transition-colors"
@@ -105,7 +118,9 @@ export function ClaimDialog({ isOpen, onClose, item, onSubmit }: ClaimDialogProp
 
           <div>
             <label className="block text-sm font-medium mb-1">
-              Why do you believe this is your item?
+              {mode === "claim"
+                ? "Why do you believe this is your item?"
+                : "What would you like the admins to know?"}
             </label>
             <textarea
               required
@@ -115,7 +130,11 @@ export function ClaimDialog({ isOpen, onClose, item, onSubmit }: ClaimDialogProp
               }
               className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               rows={4}
-              placeholder="Provide details about the item to verify ownership..."
+              placeholder={
+                mode === "claim"
+                  ? "Provide details about the item to verify ownership..."
+                  : "Share your question or contact request..."
+              }
             />
           </div>
 
@@ -131,7 +150,7 @@ export function ClaimDialog({ isOpen, onClose, item, onSubmit }: ClaimDialogProp
               type="submit"
               className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
             >
-              Submit Claim
+              {mode === "claim" ? "Submit Claim" : "Send Request"}
             </button>
           </div>
         </form>
